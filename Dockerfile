@@ -1,5 +1,11 @@
 FROM python:3.11-slim
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CHROME_HEADLESS=1
+ENV CHROME_ARGS="--no-sandbox --disable-dev-shm-usage --disable-gpu"
+ENV CHROME_BIN=/usr/bin/google-chrome-stable
+ENV DISPLAY=:99
+
 # Install system dependencies for Chrome and UV
 RUN apt-get update && apt-get install -y \
     wget \
@@ -9,6 +15,28 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     unzip \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    libu2f-udev \
+    libvulkan1 \
+
     && rm -rf /var/lib/apt/lists/*
 
 # Install UV Python manager
@@ -20,6 +48,11 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
+    && which google-chrome-stable \
+    && sleep 3 \
+    && google-chrome-stable --version \
+    && sleep 3 \
+    && ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ChromeDriver
