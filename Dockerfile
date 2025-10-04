@@ -2,6 +2,9 @@ FROM python:3.11-slim-trixie
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CHROME_HEADLESS=1
+ENV CHROME_ARGS="--no-sandbox --disable-dev-shm-usage --disable-gpu"
+ENV CHROME_BIN=/usr/bin/google-chrome-stable
+ENV DISPLAY=:99
 
 # Install system dependencies for Chrome and UV
 RUN apt-get update && apt-get install -y \
@@ -18,6 +21,9 @@ RUN pip install uv
 
 # Install Google Chrome
 # https://www.baeldung.com/ops/docker-google-chrome-headless#bd-writing-a-dockerfile-to-run-headless-chrome
+
+### There seems to be an issue with how the container recognizes Chrome. With this RUN line in, you get "Failed to initialize client: Message: session not created: cannot connect to chrome at"
+### Commenting this out will STILL result in "Could not determine browser executable." by notebooklm_mcp.server:_ensure_client:81, EVEN IF you patch the client.py file to explicitly use the browser exec path.
 RUN apt-get update && \
     curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-keyring.gpg && \
     echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
