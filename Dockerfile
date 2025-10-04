@@ -1,10 +1,12 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-trixie
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CHROME_HEADLESS=1
 
 # Install system dependencies for Chrome and UV
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg2 \
-    software-properties-common \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -12,15 +14,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install UV Python manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+RUN pip install uv
 
 # Install Google Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
+# https://www.baeldung.com/ops/docker-google-chrome-headless#bd-writing-a-dockerfile-to-run-headless-chrome
+RUN apt-get update && \
+    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-linux-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && apt-get install -y --no-install-recommends google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install ChromeDriver
 RUN CHROMEDRIVER_VERSION=`curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE` && \
@@ -29,31 +31,31 @@ RUN CHROMEDRIVER_VERSION=`curl -sS chromedriver.storage.googleapis.com/LATEST_RE
     rm /tmp/chromedriver.zip && \
     chmod +x /usr/local/bin/chromedriver
 
+# Create non-root user for security (do this BEFORE setting up the app)
+RUN groupadd -r notebooklm && useradd -r -g notebooklm -m -d /home/notebooklm notebooklm
+
 # Set up working directory
 WORKDIR /app
-
-# Create non-root user for security
-RUN groupadd -r notebooklm && useradd -r -g notebooklm notebooklm
 RUN chown -R notebooklm:notebooklm /app
 
+# Switch to non-root user BEFORE copying files and installing
+USER notebooklm
+
 # Copy project files for UV
-COPY pyproject.toml uv.lock ./
+COPY --chown=notebooklm:notebooklm pyproject.toml uv.lock ./
+
+# Copy source code
+COPY --chown=notebooklm:notebooklm src/ ./src/
+COPY --chown=notebooklm:notebooklm examples/ ./examples/
 
 # Install dependencies with UV
 RUN uv sync --all-groups
-
-# Copy source code
-COPY src/ ./src/
-COPY examples/ ./examples/
 
 # Install package with UV
 RUN uv pip install -e .
 
 # Create chrome profile directory with proper permissions
 RUN mkdir -p /app/chrome_profile && chown -R notebooklm:notebooklm /app/chrome_profile
-
-# Switch to non-root user
-USER notebooklm
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
